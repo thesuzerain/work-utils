@@ -1,5 +1,6 @@
 use base58::{FromBase58, ToBase58};
-use egui::{containers::*, *};
+use egui::*;
+use primitive_types::U256;
 
 #[derive(Default)]
 pub struct BaseBytesApp {
@@ -8,10 +9,14 @@ pub struct BaseBytesApp {
 
 impl eframe::App for BaseBytesApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        egui::TopBottomPanel::top("Base Bytes Converter").show(ctx, |ui| {
+            self.base_bytes_converter.ui(ui);
+        });
+
         egui::CentralPanel::default()
             .frame(egui::Frame::dark_canvas(&ctx.style()))
-            .show(ctx, |ui| {
-                self.base_bytes_converter.ui(ui);
+            .show(ctx, |_| {
+                // TODO: Other panels
             });
     }
 }
@@ -42,16 +47,7 @@ impl Default for BaseBytesConverter {
 }
 
 impl BaseBytesConverter {
-    pub fn ui(&mut self, ui: &mut Ui) {
-        Frame::popup(ui.style())
-            .stroke(Stroke::NONE)
-            .show(ui, |ui| {
-                ui.set_max_width(270.0);
-                self.inner_ui(ui);
-            });
-    }
-
-    fn inner_ui(&mut self, ui: &mut Ui) {
+    fn ui(&mut self, ui: &mut Ui) {
         ui.label("Byte array converter to common formats");
 
         // Display error in red, if any
@@ -181,9 +177,9 @@ fn parse_byte_list_i8(input: &str) -> Result<Vec<u8>, String> {
 }
 
 fn parse_u256(input: &str) -> Result<Vec<u8>, String> {
-    match input.parse::<primitive_types::U256>() {
+    match U256::from_dec_str(input) {
         Ok(u256) => {
-            let mut result = Vec::new();
+            let mut result = vec![0; 4 * 8];
             u256.to_big_endian(&mut result);
             Ok(result)
         }
