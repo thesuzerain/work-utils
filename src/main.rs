@@ -1,5 +1,11 @@
 #![allow(clippy::never_loop)] // False positive
 
+#[cfg(not(offline))]
+fn main() {
+    panic!("This binary is only meant to be run in native mode.");
+}
+
+#[cfg(offline)]
 fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()

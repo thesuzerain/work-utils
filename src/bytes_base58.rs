@@ -1,5 +1,5 @@
 use base58::{FromBase58, ToBase58};
-use egui::{containers::*, *};
+use egui::*;
 
 #[derive(Default)]
 pub struct BaseBytesApp {
@@ -8,10 +8,14 @@ pub struct BaseBytesApp {
 
 impl eframe::App for BaseBytesApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        egui::TopBottomPanel::top("Base Bytes Converter").show(ctx, |ui| {
+            self.base_bytes_converter.ui(ui);
+        });
+
         egui::CentralPanel::default()
             .frame(egui::Frame::dark_canvas(&ctx.style()))
-            .show(ctx, |ui| {
-                self.base_bytes_converter.ui(ui);
+            .show(ctx, |_| {
+                // TODO: Other panels
             });
     }
 }
@@ -42,16 +46,7 @@ impl Default for BaseBytesConverter {
 }
 
 impl BaseBytesConverter {
-    pub fn ui(&mut self, ui: &mut Ui) {
-        Frame::popup(ui.style())
-            .stroke(Stroke::NONE)
-            .show(ui, |ui| {
-                ui.set_max_width(270.0);
-                self.inner_ui(ui);
-            });
-    }
-
-    fn inner_ui(&mut self, ui: &mut Ui) {
+    fn ui(&mut self, ui: &mut Ui) {
         ui.label("Byte array converter to common formats");
 
         // Display error in red, if any
