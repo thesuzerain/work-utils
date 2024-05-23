@@ -139,7 +139,12 @@ impl BaseBytesConverter {
         self.display_byte_list_u8 = byte_list_u8;
         self.display_byte_list_i8 = byte_list_i8;
 
-        self.display_u256 = primitive_types::U256::from_big_endian(&input).to_string();
+        if input.len() > 4 * 8 {
+            self.display_error = Some("Value is too large for u256".to_string());
+            self.display_u256 = "".to_string();
+        } else {
+            self.display_u256 = primitive_types::U256::from_big_endian(&input).to_string();
+        }
     }
 }
 
