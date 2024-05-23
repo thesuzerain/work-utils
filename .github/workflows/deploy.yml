@@ -13,7 +13,6 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    environment: Deploy Env
     permissions:
       contents: read
       deployments: write
@@ -33,17 +32,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Install wasm-pack
-        run: |
-          cargo install wasm-pack
-
-      - name: Build Pyramus web code
+      - name: Build web code
         env:
           NODE_ENV: production
-        run: |
-          cd pyramus-gui
-          npm run build
-
+        run: ./scripts/build_web.sh
+    
       - name: Publish to Cloudflare Pages
         id: cloudflare
         uses: cloudflare/pages-action@1
@@ -51,6 +44,6 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
-          projectName: pyramus
-          directory: pyramus-gui/dist
+          projectName: work-utils
+          directory: web
           branch: master
