@@ -1,5 +1,5 @@
 # work-utils
-Personal utility library for recurring rote trivial problems while working.
+Personal utility library for recurring rote trivial problems while working, or exploring hobby projects (as are right now!)
 
 The current deployment can be found at [work.wyattverchere.com](https://work.wyattverchere.com).
 

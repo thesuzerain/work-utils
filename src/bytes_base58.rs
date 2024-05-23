@@ -1,5 +1,6 @@
 use base58::{FromBase58, ToBase58};
 use egui::*;
+use primitive_types::U256;
 
 #[derive(Default)]
 pub struct BaseBytesApp {
@@ -176,7 +177,7 @@ fn parse_byte_list_i8(input: &str) -> Result<Vec<u8>, String> {
 }
 
 fn parse_u256(input: &str) -> Result<Vec<u8>, String> {
-    match input.parse::<primitive_types::U256>() {
+    match U256::from_dec_str(input) {
         Ok(u256) => {
             let mut result = vec![0; 4 * 8];
             u256.to_big_endian(&mut result);
