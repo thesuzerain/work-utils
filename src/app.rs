@@ -1,8 +1,8 @@
-use crate::bytes_base58::BaseBytesApp;
+use crate::converter::ConverterApp;
 
 #[derive(Default)]
 pub struct State {
-    bytes_base58_converter: BaseBytesApp,
+    data_converter: ConverterApp,
 
     selected_anchor: Anchor,
 }
@@ -24,7 +24,7 @@ impl MainApp {
         let vec = vec![(
             "Base Bytes Converter",
             Anchor::BaseBytesConverter,
-            &mut self.state.bytes_base58_converter as &mut dyn eframe::App,
+            &mut self.state.data_converter as &mut dyn eframe::App,
         )];
         vec.into_iter()
     }
