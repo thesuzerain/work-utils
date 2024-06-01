@@ -1,5 +1,7 @@
-use chrono::{DateTime, Local, NaiveDate, NaiveDateTime, TimeZone, Utc};
-use chrono_tz::{Tz, TZ_VARIANTS};
+use chrono::{
+    DateTime, FixedOffset, Local, NaiveDate, NaiveDateTime, Offset, SubsecRound, TimeZone, Utc,
+};
+use chrono_tz::{OffsetComponents, OffsetName, Tz, TZ_VARIANTS};
 use egui::*;
 use egui_extras::DatePickerButton;
 
@@ -56,7 +58,13 @@ impl DateConverter {
 
         ui.horizontal(|ui| {
             ui.vertical(|ui| {
-                ui.label("UTC");
+                ui.horizontal(|ui| {
+                    ui.label("UTC");
+                    let response = ui.button("Now").on_hover_text("Set to current UTC time");
+                    if response.clicked() {
+                        self.update_texts(Some(Utc::now()));
+                    };
+                });
                 // Calendar input and display
                 ui.horizontal(|ui| {
                     ui.label("Date: ");
@@ -76,8 +84,8 @@ impl DateConverter {
                     ui.label("UTC ISO-8601: ");
                     let response = ui.text_edit_singleline(&mut self.display_utc_iso_8601);
                     if response.changed() {
-                        match parse_utc_iso_8601(&self.display_utc_iso_8601) {
-                            Ok(iso) => self.update_texts(Some(iso)),
+                        match parse_iso_8601(&self.display_utc_iso_8601) {
+                            Ok(iso) => self.update_texts(Some(iso.to_utc())),
                             Err(e) => self.display_error = Some(e),
                         }
                     }
@@ -88,19 +96,24 @@ impl DateConverter {
 
             ui.vertical(|ui| {
                 ui.horizontal(|ui| {
+                    // Time zone selection
                     let response = egui::ComboBox::from_id_source("tzpick")
                         .selected_text(format!("{:?}", self.custom_timezone))
                         .show_ui(ui, |ui| {
+                            let mut any_clicked = false;
                             for timezone in TZ_VARIANTS {
-                                ui.selectable_value(
-                                    &mut self.custom_timezone,
-                                    timezone,
-                                    timezone.name(),
-                                );
+                                any_clicked |= ui
+                                    .selectable_value(
+                                        &mut self.custom_timezone,
+                                        timezone,
+                                        timezone.name(),
+                                    )
+                                    .clicked();
                             }
+                            any_clicked
                         })
-                        .response;
-                    if response.changed() {
+                        .inner;
+                    if response == Some(true) {
                         self.update_texts(None);
                     }
 
@@ -135,11 +148,11 @@ impl DateConverter {
                     ui.label("ISO-8601: ");
                     let response = ui.text_edit_singleline(&mut self.display_custom_iso_8601);
                     if response.changed() {
-                        match parse_custom_iso_8601(
-                            &self.custom_timezone,
-                            &self.display_custom_iso_8601,
-                        ) {
-                            Ok(iso) => self.update_texts(Some(iso)),
+                        match parse_iso_8601(&self.display_custom_iso_8601) {
+                            Ok(iso) => {
+                                self.custom_timezone = iso.timezone();
+                                self.update_texts(Some(iso.to_utc()));
+                            }
                             Err(e) => self.display_error = Some(e),
                         }
                     }
@@ -160,6 +173,7 @@ impl DateConverter {
                 }
             },
         };
+        let input = input.round_subsecs(0);
 
         self.display_error = None;
 
@@ -190,30 +204,34 @@ fn parse_naive_date(input: &NaiveDate) -> Result<DateTime<Utc>, String> {
 }
 
 // TODO: these coudl be the same function with a generic
-fn parse_utc_iso_8601(input: &str) -> Result<DateTime<Utc>, String> {
-    let with_time = NaiveDateTime::parse_from_str(input, "%Y-%m-%d %H:%M:%S");
-    let without_time =
-        NaiveDate::parse_from_str(input, "%Y-%m-%d").map(|date| date.and_hms_opt(0, 0, 0).unwrap());
-    match with_time.or(without_time) {
-        Ok(date) => Ok(date.and_utc()),
-        Err(e) => Err(format!("Failed to parse ISO-8601: {}", e)),
+fn parse_iso_8601(input: &str) -> Result<DateTime<Tz>, String> {
+    // For an RFC3339 date, we guess the timezone from the offset
+    if let Ok(date_time_rfc3339) = DateTime::parse_from_rfc3339(input) {
+        let tz = guess_tz_from_fixed_offset(date_time_rfc3339.offset().fix()).unwrap_or(Tz::UTC);
+        return Ok(tz.from_utc_datetime(&date_time_rfc3339.naive_utc()));
     }
-}
 
-fn parse_custom_iso_8601(tz: &Tz, input: &str) -> Result<DateTime<Utc>, String> {
-    let with_time = NaiveDateTime::parse_from_str(input, "%Y-%m-%d %H:%M:%S");
-    let without_time =
-        NaiveDate::parse_from_str(input, "%Y-%m-%d").map(|date| date.and_hms_opt(0, 0, 0).unwrap());
-
-    match with_time
-        .or(without_time)
-        .map(|t| tz.from_local_datetime(&t).earliest().unwrap().to_utc())
+    // If it fails UTC, we attempt to parse with a timezone
+    // %Y-%m-%d %H:%M:%S %:z (seconds and timezone optional)
+    match NaiveDateTime::parse_and_remainder(input, "%Y-%m-%d %H:%M:%S")
+        .or_else(|_| NaiveDateTime::parse_and_remainder(input, "%Y-%m-%d"))
     {
-        Ok(date) => Ok(date),
+        Ok((date_time, tz)) => {
+            if tz.is_empty() {
+                Ok(Tz::UTC.from_utc_datetime(&date_time))
+            } else {
+                let tz: Tz = parse_timezone_abbreviation(tz.trim())
+                    .map_err(|e| format!("Failed to parse timezone: {}", e))?;
+                tz.from_local_datetime(&date_time)
+                    .earliest()
+                    .ok_or_else(|| "Invalid time".to_string())
+            }
+        }
         Err(e) => Err(format!("Failed to parse ISO-8601: {}", e)),
     }
 }
 
+// TODO: Can use below to guess timezone from offset
 fn guess_tz() -> Result<Tz, String> {
     let now_local_naive = Local::now().naive_local();
     let now_utc = Utc::now();
@@ -230,7 +248,27 @@ fn guess_tz() -> Result<Tz, String> {
         .ok_or_else(|| "Could not find local timezone.".to_string())
 }
 
-#[test]
-fn list_offsetstest() {
-    println!()
+fn guess_tz_from_fixed_offset(offset: FixedOffset) -> Result<Tz, String> {
+    TZ_VARIANTS
+        .into_iter()
+        .find(|tz| {
+            tz.offset_from_utc_datetime(&Utc::now().naive_utc())
+                .base_utc_offset()
+                .num_seconds() as i32
+                == offset.utc_minus_local()
+        })
+        .ok_or_else(|| "Could not find timezone from offset.".to_string())
+}
+
+// TODO: Find a crate for this- searching the array is not efficient
+// TODO: Should include "+11", "-11" etc.
+fn parse_timezone_abbreviation(input: &str) -> Result<Tz, String> {
+    TZ_VARIANTS
+        .into_iter()
+        .find(|tz| {
+            tz.offset_from_utc_datetime(&Utc::now().naive_utc())
+                .abbreviation()
+                == input
+        })
+        .ok_or_else(|| "Could not find timezone from offset.".to_string())
 }
