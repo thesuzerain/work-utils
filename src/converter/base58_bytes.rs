@@ -2,25 +2,6 @@ use base58::{FromBase58, ToBase58};
 use egui::*;
 use primitive_types::U256;
 
-#[derive(Default)]
-pub struct BaseBytesApp {
-    base_bytes_converter: BaseBytesConverter,
-}
-
-impl eframe::App for BaseBytesApp {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::TopBottomPanel::top("Base Bytes Converter").show(ctx, |ui| {
-            self.base_bytes_converter.ui(ui);
-        });
-
-        egui::CentralPanel::default()
-            .frame(egui::Frame::dark_canvas(&ctx.style()))
-            .show(ctx, |_| {
-                // TODO: Other panels
-            });
-    }
-}
-
 #[derive(PartialEq)]
 pub struct BaseBytesConverter {
     pub display_base58: String,
@@ -47,7 +28,7 @@ impl Default for BaseBytesConverter {
 }
 
 impl BaseBytesConverter {
-    fn ui(&mut self, ui: &mut Ui) {
+    pub fn ui(&mut self, ui: &mut Ui) {
         ui.label("Byte array converter to common formats");
 
         // Display error in red, if any
