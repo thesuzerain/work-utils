@@ -272,3 +272,24 @@ fn parse_timezone_abbreviation(input: &str) -> Result<Tz, String> {
         })
         .ok_or_else(|| "Could not find timezone from offset.".to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use chrono::NaiveDate;
+    use chrono::TimeZone;
+    use chrono_tz::Tz;
+
+    #[test]
+    fn parse_timezone() {
+        let tz = super::parse_iso_8601("2024-06-01 16:34:19 UTC").unwrap();
+        assert_eq!(
+            tz,
+            Tz::UTC.from_utc_datetime(
+                &NaiveDate::from_ymd_opt(2024, 6, 1)
+                    .unwrap()
+                    .and_hms_opt(16, 34, 19)
+                    .unwrap()
+            )
+        );
+    }
+}
