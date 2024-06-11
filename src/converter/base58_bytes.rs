@@ -1,4 +1,3 @@
-use base58::{FromBase58, ToBase58};
 use egui::*;
 use primitive_types::U256;
 
@@ -104,7 +103,7 @@ impl BaseBytesConverter {
     fn update_texts(&mut self, input: Vec<u8>) {
         self.display_error = None;
 
-        self.display_base58 = input.to_base58();
+        self.display_base58 = bs58::encode(&input).into_string();
         self.display_hex = hex::encode(&input);
 
         let mut byte_list_u8 = String::new();
@@ -185,7 +184,7 @@ fn parse_hex(input: &str) -> Result<Vec<u8>, String> {
 
 fn parse_base58(input: &str) -> Result<Vec<u8>, String> {
     // Verify that the input is valid base58
-    match input.from_base58() {
+    match bs58::decode(input).into_vec() {
         Ok(s) => Ok(s),
         Err(e) => Err(format!("Failed to parse base58: {:?}", e)),
     }
