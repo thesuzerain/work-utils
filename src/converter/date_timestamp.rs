@@ -1,14 +1,30 @@
+use std::{
+    collections::{btree_map::Entry, BTreeMap},
+    sync::Arc,
+};
+
 use chrono::{
     DateTime, FixedOffset, Local, NaiveDate, NaiveDateTime, Offset, SubsecRound, TimeZone, Utc,
 };
 use chrono_tz::{OffsetComponents, OffsetName, Tz, TZ_VARIANTS};
 use egui::*;
 use egui_extras::DatePickerButton;
+use solana_client::nonblocking::rpc_client::RpcClient;
+use tokio::sync::Mutex;
 
 // TODO: This is the same as the base58 converter. We should be able to make this modular.
 // TODO: Can be cleaned up with modularity- lots of repeated behaviour below.
-#[derive(PartialEq)]
 pub struct DateConverter {
+    pub data: Arc<Mutex<DateConverterData>>,
+
+    // For getting block -> timestamp
+    // We cache and bsearch to get timestamp -> block
+    // TODO: Find a direct Solana function to get timestamp from block
+    pub cached_solana_timestamps: Arc<Mutex<BTreeMap<u64, i64>>>,
+    pub client: Arc<RpcClient>,
+}
+
+pub struct DateConverterData {
     pub custom_timezone: Tz,
 
     pub display_timestamp: String,
@@ -16,19 +32,27 @@ pub struct DateConverter {
     pub display_utc_iso_8601: String,
     pub display_custom_calendar: NaiveDate,
     pub display_custom_iso_8601: String,
+    pub display_solana_block: String,
+
     pub display_error: Option<String>,
 }
 
 impl Default for DateConverter {
     fn default() -> Self {
         Self {
-            custom_timezone: Tz::UTC,
-            display_timestamp: 0.to_string(),
-            display_utc_calendar: NaiveDate::from_ymd_opt(1970, 1, 1).unwrap(),
-            display_utc_iso_8601: "1970-01-01 00:00:00".to_string(),
-            display_custom_calendar: NaiveDate::from_ymd_opt(1970, 1, 1).unwrap(),
-            display_custom_iso_8601: "1970-01-01 00:00:00".to_string(),
-            display_error: None,
+            cached_solana_timestamps: Arc::new(Mutex::new(BTreeMap::new())),
+            client: Arc::new(get_solana_rpc()),
+
+            data: Arc::new(Mutex::new(DateConverterData {
+                custom_timezone: Tz::UTC,
+                display_timestamp: 0.to_string(),
+                display_utc_calendar: NaiveDate::from_ymd_opt(1970, 1, 1).unwrap(),
+                display_utc_iso_8601: "1970-01-01 00:00:00".to_string(),
+                display_custom_calendar: NaiveDate::from_ymd_opt(1970, 1, 1).unwrap(),
+                display_custom_iso_8601: "1970-01-01 00:00:00".to_string(),
+                display_solana_block: "0".to_string(),
+                display_error: None,
+            })),
         }
     }
 }
@@ -36,9 +60,11 @@ impl Default for DateConverter {
 impl DateConverter {
     pub fn ui(&mut self, ui: &mut Ui) {
         ui.label("Date converter to common formats");
+        let data = self.data.clone();
+        let mut data = data.blocking_lock();
 
         // Display error in red, if any
-        if let Some(error) = &self.display_error {
+        if let Some(error) = &data.display_error {
             ui.colored_label(egui::Color32::RED, error);
         } else {
             ui.label(" ");
@@ -47,11 +73,11 @@ impl DateConverter {
         // Timestamp display
         ui.horizontal(|ui| {
             ui.label("Unix timestamp: ");
-            let response = ui.text_edit_singleline(&mut self.display_timestamp);
+            let response = ui.text_edit_singleline(&mut data.display_timestamp);
             if response.changed() {
-                match parse_timestamp(&self.display_timestamp) {
-                    Ok(s) => self.update_texts(Some(s)),
-                    Err(e) => self.display_error = Some(e),
+                match parse_timestamp(&data.display_timestamp) {
+                    Ok(s) => Self::update_texts(Some(s), &mut data),
+                    Err(e) => data.display_error = Some(e),
                 }
             }
         });
@@ -62,19 +88,19 @@ impl DateConverter {
                     ui.label("UTC");
                     let response = ui.button("Now").on_hover_text("Set to current UTC time");
                     if response.clicked() {
-                        self.update_texts(Some(Utc::now()));
+                        Self::update_texts(Some(Utc::now()), &mut data);
                     };
                 });
                 // Calendar input and display
                 ui.horizontal(|ui| {
                     ui.label("Date: ");
-                    let response = DatePickerButton::new(&mut self.display_utc_calendar)
+                    let response = DatePickerButton::new(&mut data.display_utc_calendar)
                         .id_source("utccal")
                         .ui(ui);
                     if response.changed() {
-                        match parse_naive_date(&self.display_utc_calendar) {
-                            Ok(s) => self.update_texts(Some(s)),
-                            Err(e) => self.display_error = Some(e),
+                        match parse_naive_date(&data.display_utc_calendar) {
+                            Ok(s) => Self::update_texts(Some(s), &mut data),
+                            Err(e) => data.display_error = Some(e),
                         }
                     }
                 });
@@ -82,11 +108,11 @@ impl DateConverter {
                 // UTC ISO-8601 input and display
                 ui.horizontal(|ui| {
                     ui.label("UTC ISO-8601: ");
-                    let response = ui.text_edit_singleline(&mut self.display_utc_iso_8601);
+                    let response = ui.text_edit_singleline(&mut data.display_utc_iso_8601);
                     if response.changed() {
-                        match parse_iso_8601(&self.display_utc_iso_8601) {
-                            Ok(iso) => self.update_texts(Some(iso.to_utc())),
-                            Err(e) => self.display_error = Some(e),
+                        match parse_iso_8601(&data.display_utc_iso_8601) {
+                            Ok(iso) => Self::update_texts(Some(iso.to_utc()), &mut data),
+                            Err(e) => data.display_error = Some(e),
                         }
                     }
                 });
@@ -98,13 +124,13 @@ impl DateConverter {
                 ui.horizontal(|ui| {
                     // Time zone selection
                     let response = egui::ComboBox::from_id_source("tzpick")
-                        .selected_text(format!("{:?}", self.custom_timezone))
+                        .selected_text(format!("{:?}", data.custom_timezone))
                         .show_ui(ui, |ui| {
                             let mut any_clicked = false;
                             for timezone in TZ_VARIANTS {
                                 any_clicked |= ui
                                     .selectable_value(
-                                        &mut self.custom_timezone,
+                                        &mut data.custom_timezone,
                                         timezone,
                                         timezone.name(),
                                     )
@@ -114,17 +140,17 @@ impl DateConverter {
                         })
                         .inner;
                     if response == Some(true) {
-                        self.update_texts(None);
+                        Self::update_texts(None, &mut data);
                     }
 
                     let response = ui.button("Guess");
                     if response.clicked() {
                         match guess_tz() {
                             Ok(tz) => {
-                                self.custom_timezone = tz;
-                                self.update_texts(None);
+                                data.custom_timezone = tz;
+                                Self::update_texts(None, &mut data);
                             }
-                            Err(e) => self.display_error = Some(e),
+                            Err(e) => data.display_error = Some(e),
                         }
                     }
                 });
@@ -132,13 +158,13 @@ impl DateConverter {
                 // Calendar input and display
                 ui.horizontal(|ui| {
                     ui.label("Date: ");
-                    let response = DatePickerButton::new(&mut self.display_custom_calendar)
+                    let response = DatePickerButton::new(&mut data.display_custom_calendar)
                         .id_source("tzcal")
                         .ui(ui);
                     if response.changed() {
-                        match parse_naive_date(&self.display_custom_calendar) {
-                            Ok(s) => self.update_texts(Some(s)),
-                            Err(e) => self.display_error = Some(e),
+                        match parse_naive_date(&data.display_custom_calendar) {
+                            Ok(s) => Self::update_texts(Some(s), &mut data),
+                            Err(e) => data.display_error = Some(e),
                         }
                     }
                 });
@@ -146,43 +172,104 @@ impl DateConverter {
                 // Custom ISO-8601
                 ui.horizontal(|ui| {
                     ui.label("ISO-8601: ");
-                    let response = ui.text_edit_singleline(&mut self.display_custom_iso_8601);
+                    let response = ui.text_edit_singleline(&mut data.display_custom_iso_8601);
                     if response.changed() {
-                        match parse_iso_8601(&self.display_custom_iso_8601) {
+                        match parse_iso_8601(&data.display_custom_iso_8601) {
                             Ok(iso) => {
-                                self.custom_timezone = iso.timezone();
-                                self.update_texts(Some(iso.to_utc()));
+                                data.custom_timezone = iso.timezone();
+                                Self::update_texts(Some(iso.to_utc()), &mut data);
                             }
-                            Err(e) => self.display_error = Some(e),
+                            Err(e) => data.display_error = Some(e),
                         }
                     }
                 });
             });
+
+            ui.separator();
+
+            ui.vertical(|ui| {
+                ui.horizontal(|ui| {
+                    ui.label("Solana block: ");
+                    let response = ui.text_edit_singleline(&mut data.display_solana_block);
+                    if response.changed() {
+                        match data.display_solana_block.parse::<u64>() {
+                            Ok(o) => {
+                                let cache_clone = self.cached_solana_timestamps.clone();
+                                let client_clone = self.client.clone();
+                                // Start a new solana recalculator
+                                let current_timestamp_str = data.display_timestamp.clone();
+                                let data_clone = self.data.clone();
+                                let fut = async move {
+                                    match get_solana_block_timestamp(
+                                        cache_clone.clone(),
+                                        client_clone.clone(),
+                                        o,
+                                    )
+                                    .await
+                                    {
+                                        Ok(o) => {
+                                            let new_timestamp = {
+                                                let data = data_clone.lock().await;
+                                                data.display_timestamp.clone()
+                                            };
+                                            if new_timestamp == current_timestamp_str {
+                                                let mut data_clone_lock = data_clone.lock().await;
+                                                match parse_timestamp(&o.to_string()) {
+                                                    Ok(s) => Self::update_texts(
+                                                        Some(s),
+                                                        &mut data_clone_lock,
+                                                    ),
+                                                    Err(e) => {
+                                                        let mut data = data_clone.lock().await;
+                                                        data.display_error = Some(e);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        Err(e) => {
+                                            let mut data = data_clone.lock().await;
+                                            data.display_error =
+                                                Some(format!("Failed to get block: {}", e));
+                                        }
+                                    }
+                                };
+                                tokio::spawn(fut);
+                            }
+                            Err(e) => {
+                                data.display_error = Some(format!("Failed to parse block: {}", e))
+                            }
+                        }
+                    }
+                });
+            })
         });
     }
 
     /// Update texts based on a new input (NaiveDateTime)
-    fn update_texts(&mut self, input: Option<DateTime<Utc>>) {
+    /// This update happens asynchronously
+    ///
+    /// 'input' is the new timestamp to update to. If None, it will parse the current timestamp
+    fn update_texts(input: Option<DateTime<Utc>>, data: &mut DateConverterData) {
         let input = match input {
             Some(i) => i,
-            None => match parse_timestamp(&self.display_timestamp) {
+            None => match parse_timestamp(&data.display_timestamp) {
                 Ok(t) => t,
                 Err(e) => {
-                    self.display_error = Some(e);
+                    data.display_error = Some(e);
                     return;
                 }
             },
         };
         let input = input.round_subsecs(0);
 
-        self.display_error = None;
+        data.display_error = None;
 
-        self.display_timestamp = input.timestamp().to_string();
-        self.display_utc_calendar = input.date_naive();
-        self.display_utc_iso_8601 = input.to_string();
+        data.display_timestamp = input.timestamp().to_string();
+        data.display_utc_calendar = input.date_naive();
+        data.display_utc_iso_8601 = input.to_string();
 
-        self.display_custom_calendar = input.with_timezone(&self.custom_timezone).date_naive();
-        self.display_custom_iso_8601 = input.with_timezone(&self.custom_timezone).to_string();
+        data.display_custom_calendar = input.with_timezone(&data.custom_timezone).date_naive();
+        data.display_custom_iso_8601 = input.with_timezone(&data.custom_timezone).to_string();
     }
 }
 
@@ -271,6 +358,33 @@ fn parse_timezone_abbreviation(input: &str) -> Result<Tz, String> {
                 == input
         })
         .ok_or_else(|| "Could not find timezone from offset.".to_string())
+}
+
+fn get_solana_rpc() -> RpcClient {
+    let url = "https://api.mainnet-beta.solana.com";
+    RpcClient::new(url.to_string())
+}
+
+async fn get_solana_block_timestamp(
+    // TODO: Does this cache actually make a significant difference with how disparate blocks are? Maybe we can fully exhaust the cache first
+    cache: Arc<Mutex<BTreeMap<u64, i64>>>,
+    client: Arc<RpcClient>,
+    block: u64,
+) -> Result<i64, String> {
+    let mut cache = cache.lock().await;
+    let entry = cache.entry(block);
+    match entry {
+        Entry::Occupied(o) => Ok(*o.get()),
+        Entry::Vacant(o) => {
+            // TODO: This would be easier to just use anyhow::Error
+            let value = client
+                .get_block_time(block)
+                .await
+                .map_err(|err| format!("{:?}", err))?;
+            o.insert(value);
+            Ok(value)
+        }
+    }
 }
 
 #[cfg(test)]
