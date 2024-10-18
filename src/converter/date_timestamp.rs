@@ -9,7 +9,7 @@ use chrono::{
 use chrono_tz::{OffsetComponents, OffsetName, Tz, TZ_VARIANTS};
 use egui::*;
 use egui_extras::DatePickerButton;
-use solana_client::nonblocking::rpc_client::RpcClient;
+use reqwest::Client;
 use tokio::sync::Mutex;
 
 // TODO: This is the same as the base58 converter. We should be able to make this modular.
@@ -21,7 +21,9 @@ pub struct DateConverter {
     // We cache and bsearch to get timestamp -> block
     // TODO: Find a direct Solana function to get timestamp from block
     pub cached_solana_timestamps: Arc<Mutex<BTreeMap<u64, i64>>>,
-    pub client: Arc<RpcClient>,
+
+    // Reqwest client for solana rpc
+    pub client: Arc<Client>,
 }
 
 pub struct DateConverterData {
@@ -32,7 +34,9 @@ pub struct DateConverterData {
     pub display_utc_iso_8601: String,
     pub display_custom_calendar: NaiveDate,
     pub display_custom_iso_8601: String,
+
     pub display_solana_block: String,
+    pub display_solana_rpc_url: String,
 
     pub display_error: Option<String>,
 }
@@ -41,7 +45,7 @@ impl Default for DateConverter {
     fn default() -> Self {
         Self {
             cached_solana_timestamps: Arc::new(Mutex::new(BTreeMap::new())),
-            client: Arc::new(get_solana_rpc()),
+            client: Arc::new(get_reqwest_client()),
 
             data: Arc::new(Mutex::new(DateConverterData {
                 custom_timezone: Tz::UTC,
@@ -51,6 +55,7 @@ impl Default for DateConverter {
                 display_custom_calendar: NaiveDate::from_ymd_opt(1970, 1, 1).unwrap(),
                 display_custom_iso_8601: "1970-01-01 00:00:00".to_string(),
                 display_solana_block: "0".to_string(),
+                display_solana_rpc_url: "https://api.mainnet-beta.solana.com".to_string(),
                 display_error: None,
             })),
         }
@@ -192,6 +197,7 @@ impl DateConverter {
                     ui.label("Solana block: ");
                     let response = ui.text_edit_singleline(&mut data.display_solana_block);
                     if response.changed() {
+                        let url = data.display_solana_rpc_url.clone();
                         match data.display_solana_block.parse::<u64>() {
                             Ok(o) => {
                                 let cache_clone = self.cached_solana_timestamps.clone();
@@ -203,6 +209,7 @@ impl DateConverter {
                                     match get_solana_block_timestamp(
                                         cache_clone.clone(),
                                         client_clone.clone(),
+                                        &url,
                                         o,
                                     )
                                     .await
@@ -233,13 +240,25 @@ impl DateConverter {
                                         }
                                     }
                                 };
-                                tokio::spawn(fut);
+                                #[cfg(feature = "web_app")]
+                                {
+                                    wasm_bindgen_futures::spawn_local(fut);
+                                }
+                                #[cfg(not(feature = "web_app"))]
+                                {
+                                    tokio::spawn(fut);
+                                }
                             }
                             Err(e) => {
                                 data.display_error = Some(format!("Failed to parse block: {}", e))
                             }
                         }
                     }
+                });
+
+                ui.horizontal(|ui| {
+                    ui.label("Solana RPC URL: ");
+                    let response = ui.text_edit_singleline(&mut data.display_solana_rpc_url);
                 });
             })
         });
@@ -360,15 +379,17 @@ fn parse_timezone_abbreviation(input: &str) -> Result<Tz, String> {
         .ok_or_else(|| "Could not find timezone from offset.".to_string())
 }
 
-fn get_solana_rpc() -> RpcClient {
-    let url = "https://api.mainnet-beta.solana.com";
-    RpcClient::new(url.to_string())
+fn get_reqwest_client() -> reqwest::Client {
+    reqwest::ClientBuilder::new()
+        .build()
+        .expect("Failed to build reqwest client")
 }
 
 async fn get_solana_block_timestamp(
     // TODO: Does this cache actually make a significant difference with how disparate blocks are? Maybe we can fully exhaust the cache first
     cache: Arc<Mutex<BTreeMap<u64, i64>>>,
-    client: Arc<RpcClient>,
+    client: Arc<Client>,
+    url: &str,
     block: u64,
 ) -> Result<i64, String> {
     let mut cache = cache.lock().await;
@@ -377,10 +398,21 @@ async fn get_solana_block_timestamp(
         Entry::Occupied(o) => Ok(*o.get()),
         Entry::Vacant(o) => {
             // TODO: This would be easier to just use anyhow::Error
-            let value = client
-                .get_block_time(block)
-                .await
-                .map_err(|err| format!("{:?}", err))?;
+            let sent = client.post(url).json(&serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "getBlockTime",
+                "params": [block]
+            })).send().await.map_err(|e| format!("{:?}", e))?;
+
+            #[derive(serde::Deserialize)]
+            struct GetBlockResponse {
+                result: i64,
+            }
+
+            let response = sent.json::<serde_json::Value>().await.map_err(|e| format!("{:?}", e))?;
+            println!("{:?}", response);
+            let value = response.get("result").ok_or(format!("Response missing result: {:?}", response))?.as_i64().ok_or(format!("Response result not an i64: {:?}", response))?;
             o.insert(value);
             Ok(value)
         }
