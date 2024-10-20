@@ -45,6 +45,6 @@ fn main() -> Result<(), eframe::Error> {
     eframe::run_native(
         "thesuzerain work-utils",
         options,
-        Box::new(|cc| Box::new(work_utils::MainApp::new(cc))),
+        Box::new(|cc| Box::new(work_utils_app::MainApp::new(cc))),
     )
 }

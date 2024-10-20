@@ -36,7 +36,6 @@ pub struct DateConverterData {
     pub display_custom_iso_8601: String,
 
     pub display_solana_block: String,
-    pub display_solana_rpc_url: String,
 
     pub display_error: Option<String>,
 }
@@ -55,7 +54,6 @@ impl Default for DateConverter {
                 display_custom_calendar: NaiveDate::from_ymd_opt(1970, 1, 1).unwrap(),
                 display_custom_iso_8601: "1970-01-01 00:00:00".to_string(),
                 display_solana_block: "0".to_string(),
-                display_solana_rpc_url: "https://api.mainnet-beta.solana.com".to_string(),
                 display_error: None,
             })),
         }
@@ -197,7 +195,7 @@ impl DateConverter {
                     ui.label("Solana block: ");
                     let response = ui.text_edit_singleline(&mut data.display_solana_block);
                     if response.changed() {
-                        let url = data.display_solana_rpc_url.clone();
+                        let url = "https://api.mainnet-beta.solana.com";
                         match data.display_solana_block.parse::<u64>() {
                             Ok(o) => {
                                 let cache_clone = self.cached_solana_timestamps.clone();
@@ -254,11 +252,6 @@ impl DateConverter {
                             }
                         }
                     }
-                });
-
-                ui.horizontal(|ui| {
-                    ui.label("Solana RPC URL: ");
-                    let response = ui.text_edit_singleline(&mut data.display_solana_rpc_url);
                 });
             })
         });
@@ -398,21 +391,28 @@ async fn get_solana_block_timestamp(
         Entry::Occupied(o) => Ok(*o.get()),
         Entry::Vacant(o) => {
             // TODO: This would be easier to just use anyhow::Error
-            let sent = client.post(url).json(&serde_json::json!({
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "getBlockTime",
-                "params": [block]
-            })).send().await.map_err(|e| format!("{:?}", e))?;
+            let sent = client
+                .post(url)
+                .json(&serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "getBlockTime",
+                    "params": [block]
+                }))
+                .send()
+                .await
+                .map_err(|e| format!("{:?}", e))?;
 
-            #[derive(serde::Deserialize)]
-            struct GetBlockResponse {
-                result: i64,
-            }
-
-            let response = sent.json::<serde_json::Value>().await.map_err(|e| format!("{:?}", e))?;
+            let response = sent
+                .json::<serde_json::Value>()
+                .await
+                .map_err(|e| format!("{:?}", e))?;
             println!("{:?}", response);
-            let value = response.get("result").ok_or(format!("Response missing result: {:?}", response))?.as_i64().ok_or(format!("Response result not an i64: {:?}", response))?;
+            let value = response
+                .get("result")
+                .ok_or(format!("Response missing result: {:?}", response))?
+                .as_i64()
+                .ok_or(format!("Response result not an i64: {:?}", response))?;
             o.insert(value);
             Ok(value)
         }
