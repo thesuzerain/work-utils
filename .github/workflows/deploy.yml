@@ -33,10 +33,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Navigate to work-utils-app
-        run: cd work-utils-app
 
       - name: Build web code
+        working-directory: work-utils-app
         env:
           NODE_ENV: production
         run: ./scripts/build_web.sh
