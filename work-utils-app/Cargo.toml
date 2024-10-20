@@ -19,6 +19,7 @@ bs58 = { workspace = true }
 hex = { workspace = true }
 chrono = { workspace = true }
 chrono-tz = { workspace = true }
+lazy_static = "1.5.0"
 
 # For block <-> timestamp
 reqwest = {workspace = true, features = ["json"]}

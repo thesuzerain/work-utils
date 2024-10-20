@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use actix_cors::Cors;
 use actix_extensible_rate_limit::{backend::memory::InMemoryBackend, RateLimiter};
 use actix_web::{get, http::StatusCode, web, App, HttpServer, Responder};
 use serde_json::json;
@@ -9,6 +10,10 @@ async fn main() {
     let backend = InMemoryBackend::builder().build();
 
     HttpServer::new(move || {
+        // Create permissive CORS, as we only have the one simple endpoint
+        // TODO: Restrict if we add more content
+        let cors = Cors::permissive();
+
         // Assign a limit of 5 requests per minute per client ip address
         let input = actix_extensible_rate_limit::backend::SimpleInputFunctionBuilder::new(
             Duration::from_secs(60),
@@ -20,7 +25,10 @@ async fn main() {
             .add_headers()
             .build();
 
-        App::new().wrap(rate_limit_middleware).service(greet)
+        App::new()
+            .wrap(cors)
+            .wrap(rate_limit_middleware)
+            .service(greet)
     })
     .bind(("0.0.0.0", 8080))
     .expect("Failed to bind to port")
@@ -81,7 +89,7 @@ async fn greet(block: web::Path<u32>) -> impl Responder {
     };
 
     // Fetch the block time from the response (one field, don't bother deserialiazing)
-    let value = match response.get("result").map(|v| v.as_i64()).flatten() {
+    let value = match response.get("result").and_then(|v| v.as_i64()) {
         Some(t) => t,
         None => {
             return (

@@ -70,7 +70,7 @@ while test $# -gt 0; do
   esac
 done
 
-OUT_FILE_NAME="work_utils"
+OUT_FILE_NAME="work_utils_app"
 
 if [[ "${WGPU}" == true ]]; then
   FEATURES="${FEATURES},wgpu"
@@ -95,7 +95,7 @@ ${BUILD_FLAGS} \
 
 # Get the output directory (in the workspace it is in another location)
 # TARGET=`cargo metadata --format-version=1 | jq --raw-output .target_directory`
-TARGET="target"
+TARGET="../target"
 
 echo "Generating JS bindings for wasm…"
 TARGET_NAME="${OUT_FILE_NAME}.wasm"
