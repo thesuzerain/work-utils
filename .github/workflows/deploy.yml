@@ -48,5 +48,5 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
           projectName: work-utils
-          directory: web
-          branch: master
+          directory: work-utils-app/web
+          branch: master        
