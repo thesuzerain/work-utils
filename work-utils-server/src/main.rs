@@ -22,7 +22,7 @@ async fn main() {
 
         App::new().wrap(rate_limit_middleware).service(greet)
     })
-    .bind(("127.0.0.1", 8080))
+    .bind(("0.0.0.0", 8080))
     .expect("Failed to bind to port")
     .run()
     .await
