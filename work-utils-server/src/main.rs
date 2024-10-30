@@ -28,7 +28,8 @@ async fn main() {
         App::new()
             .wrap(cors)
             .wrap(rate_limit_middleware)
-            .service(greet)
+            .service(home)
+            .service(solana_blocktime)
     })
     .bind(("0.0.0.0", 8080))
     .expect("Failed to bind to port")
@@ -43,8 +44,18 @@ fn get_reqwest_client() -> reqwest::Client {
         .expect("Failed to build reqwest client")
 }
 
+#[get("/")]
+async fn home() -> impl Responder {
+    (
+        web::Json(json!({
+            "message": "Welcome to the work-utils server!"
+        })),
+        StatusCode::OK,
+    )
+}
+
 #[get("/solana_blocktime/{block}")]
-async fn greet(block: web::Path<u32>) -> impl Responder {
+async fn solana_blocktime(block: web::Path<u32>) -> impl Responder {
     let client = get_reqwest_client();
     let block = block.into_inner();
 
