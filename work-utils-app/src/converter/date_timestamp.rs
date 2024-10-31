@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use crate::{REQWEST_CLIENT, WORK_UTILS_API_URL};
 use chrono::{
     DateTime, FixedOffset, Local, NaiveDate, NaiveDateTime, Offset, SubsecRound, TimeZone, Utc,
 };
@@ -7,7 +8,6 @@ use chrono_tz::{OffsetComponents, OffsetName, Tz, TZ_VARIANTS};
 use egui::*;
 use egui_extras::DatePickerButton;
 use tokio::sync::Mutex;
-use crate::{REQWEST_CLIENT, WORK_UTILS_API_URL};
 
 // TODO: This is the same as the base58 converter. We should be able to make this modular.
 // TODO: Can be cleaned up with modularity- lots of repeated behaviour below.
@@ -240,7 +240,7 @@ impl DateConverter {
                             }
                         }
                     }
-                
+
                     if data.loading_solana_block {
                         ui.spinner();
                     }
@@ -368,9 +368,7 @@ fn parse_timezone_abbreviation(input: &str) -> Result<Tz, String> {
         .ok_or_else(|| "Could not find timezone from offset.".to_string())
 }
 
-async fn get_solana_block_timestamp(
-    block: u64,
-) -> Result<i64, String> {
+async fn get_solana_block_timestamp(block: u64) -> Result<i64, String> {
     let uri = format!("{}solana_blocktime/{}", WORK_UTILS_API_URL, block);
     println!("Requesting: {}", uri);
     let response = REQWEST_CLIENT
@@ -384,11 +382,11 @@ async fn get_solana_block_timestamp(
         .await
         .map_err(|e| format!("Failed to parse response: {:?}", e))?;
 
-        println!("Response: {:?}", response);
+    println!("Response: {:?}", response);
     let value = response
-    .get("timestamp")
-    .ok_or(format!("Response missing result: {:?}", response))?
-    .as_i64()
+        .get("timestamp")
+        .ok_or(format!("Response missing result: {:?}", response))?
+        .as_i64()
         .ok_or(format!("Response result not an i64: {:?}", response))?;
     Ok(value)
 }

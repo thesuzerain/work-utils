@@ -3,7 +3,7 @@ pub use app::MainApp;
 
 pub mod converter;
 
-pub const WORK_UTILS_API_URL : &str = "https://work-utils-api.wyattverchere.com/";
+pub const WORK_UTILS_API_URL: &str = "https://work-utils-api.wyattverchere.com/";
 
 #[cfg(all(target_arch = "wasm32", feature = "web_app"))]
 mod web;
