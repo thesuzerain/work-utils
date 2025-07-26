@@ -29,72 +29,117 @@ impl Default for BaseBytesConverter {
 impl BaseBytesConverter {
     pub fn ui(&mut self, ui: &mut Ui) {
         ui.label("Byte array converter to common formats");
-
-        // Display error in red, if any
-        if let Some(error) = &self.display_error {
-            ui.colored_label(egui::Color32::RED, error);
-        } else {
-            ui.label(" ");
-        }
-
-        // Base58 input and display
         ui.horizontal(|ui| {
-            ui.label("Base58: ");
-            let response = ui.text_edit_singleline(&mut self.display_base58);
-            if response.changed() {
-                match parse_base58(&self.display_base58) {
-                    Ok(s) => self.update_texts(s),
-                    Err(e) => self.display_error = Some(e),
+            ui.vertical(|ui| {
+                // Display error in red, if any
+                if let Some(error) = &self.display_error {
+                    ui.colored_label(egui::Color32::RED, error);
+                } else {
+                    ui.label(" ");
                 }
-            }
-        });
 
-        // Hex input and display
-        ui.horizontal(|ui| {
-            ui.label("Hex: ");
-            let response = ui.text_edit_singleline(&mut self.display_hex);
-            if response.changed() {
-                match parse_hex(&self.display_hex) {
-                    Ok(s) => self.update_texts(s),
-                    Err(e) => self.display_error = Some(e),
-                }
-            }
-        });
+                // Base58 input and display
+                ui.horizontal(|ui| {
+                    ui.label("Base58: ");
+                    let response = ui.text_edit_singleline(&mut self.display_base58);
+                    if response.changed() {
+                        match parse_base58(&self.display_base58) {
+                            Ok(s) => self.update_texts(s),
+                            Err(e) => self.display_error = Some(e),
+                        }
+                    }
+                });
 
-        // Byte list (u8) input and display
-        ui.horizontal(|ui| {
-            ui.label("Byte list (u8): ");
-            let response = ui.text_edit_singleline(&mut self.display_byte_list_u8);
-            if response.changed() {
-                match parse_byte_list_u8(&self.display_byte_list_u8) {
-                    Ok(byte_list) => self.update_texts(byte_list),
-                    Err(e) => self.display_error = Some(e),
-                }
-            }
-        });
+                // Hex input and display
+                ui.horizontal(|ui| {
+                    ui.label("Hex: ");
+                    let response = ui.text_edit_singleline(&mut self.display_hex);
+                    if response.changed() {
+                        match parse_hex(&self.display_hex) {
+                            Ok(s) => self.update_texts(s),
+                            Err(e) => self.display_error = Some(e),
+                        }
+                    }
+                });
 
-        // Byte list (i8) input and display
-        ui.horizontal(|ui| {
-            ui.label("Byte list (i8): ");
-            let response = ui.text_edit_singleline(&mut self.display_byte_list_i8);
-            if response.changed() {
-                match parse_byte_list_i8(&self.display_byte_list_i8) {
-                    Ok(byte_list) => self.update_texts(byte_list),
-                    Err(e) => self.display_error = Some(e),
-                }
-            }
-        });
+                // Byte list (u8) input and display
+                ui.horizontal(|ui| {
+                    ui.label("Byte list (u8): ");
+                    let response = ui.text_edit_singleline(&mut self.display_byte_list_u8);
+                    if response.changed() {
+                        match parse_byte_list_u8(&self.display_byte_list_u8) {
+                            Ok(byte_list) => self.update_texts(byte_list),
+                            Err(e) => self.display_error = Some(e),
+                        }
+                    }
+                });
 
-        // U256 input and display
-        ui.horizontal(|ui| {
-            ui.label("U256: ");
-            let response = ui.text_edit_singleline(&mut self.display_u256);
-            if response.changed() {
-                match parse_u256(&self.display_u256) {
-                    Ok(u256) => self.update_texts(u256),
-                    Err(e) => self.display_error = Some(e),
+                // Byte list (i8) input and display
+                ui.horizontal(|ui| {
+                    ui.label("Byte list (i8): ");
+                    let response = ui.text_edit_singleline(&mut self.display_byte_list_i8);
+                    if response.changed() {
+                        match parse_byte_list_i8(&self.display_byte_list_i8) {
+                            Ok(byte_list) => self.update_texts(byte_list),
+                            Err(e) => self.display_error = Some(e),
+                        }
+                    }
+                });
+
+                // U256 input and display
+                ui.horizontal(|ui| {
+                    ui.label("U256: ");
+                    let response = ui.text_edit_singleline(&mut self.display_u256);
+                    if response.changed() {
+                        match parse_u256(&self.display_u256) {
+                            Ok(u256) => self.update_texts(u256),
+                            Err(e) => self.display_error = Some(e),
+                        }
+                    }
+                });
+            });
+            ui.vertical(|ui| {
+                ui.label(" ");
+                if !self.display_base58.is_empty() {
+                    let solscan_url = format!("https://solscan.io/account/{}", self.display_base58);
+                    let solscan_tx_url = format!("https://solscan.io/tx/{}", self.display_base58);
+                    let explorer_url = format!(
+                        "https://explorer.solana.com/address/{}",
+                        self.display_base58
+                    );
+                    let solana_fm_url =
+                        format!("https://solana.fm/address/{}", self.display_base58);
+
+                    // now do it as a button that links out
+                    if ui.button("Open in Solscan as account").clicked() {
+                        ui.ctx().open_url(egui::OpenUrl {
+                            url: solscan_url,
+                            new_tab: true,
+                        });
+                    }
+
+                    if ui.button("Open in Solscan as transaction").clicked() {
+                        ui.ctx().open_url(egui::OpenUrl {
+                            url: solscan_tx_url,
+                            new_tab: true,
+                        });
+                    }
+
+                    if ui.button("Open in Solana Explorer").clicked() {
+                        ui.ctx().open_url(egui::OpenUrl {
+                            url: explorer_url,
+                            new_tab: true,
+                        });
+                    }
+
+                    if ui.button("Open in Solana.fm").clicked() {
+                        ui.ctx().open_url(egui::OpenUrl {
+                            url: solana_fm_url,
+                            new_tab: true,
+                        });
+                    }
                 }
-            }
+            });
         });
     }
 

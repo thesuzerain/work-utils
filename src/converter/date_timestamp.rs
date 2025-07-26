@@ -398,21 +398,33 @@ async fn get_solana_block_timestamp(
         Entry::Occupied(o) => Ok(*o.get()),
         Entry::Vacant(o) => {
             // TODO: This would be easier to just use anyhow::Error
-            let sent = client.post(url).json(&serde_json::json!({
-                "jsonrpc": "2.0",
-                "id": 1,
-                "method": "getBlockTime",
-                "params": [block]
-            })).send().await.map_err(|e| format!("{:?}", e))?;
+            let sent = client
+                .post(url)
+                .json(&serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "getBlockTime",
+                    "params": [block]
+                }))
+                .send()
+                .await
+                .map_err(|e| format!("{:?}", e))?;
 
             #[derive(serde::Deserialize)]
             struct GetBlockResponse {
                 result: i64,
             }
 
-            let response = sent.json::<serde_json::Value>().await.map_err(|e| format!("{:?}", e))?;
+            let response = sent
+                .json::<serde_json::Value>()
+                .await
+                .map_err(|e| format!("{:?}", e))?;
             println!("{:?}", response);
-            let value = response.get("result").ok_or(format!("Response missing result: {:?}", response))?.as_i64().ok_or(format!("Response result not an i64: {:?}", response))?;
+            let value = response
+                .get("result")
+                .ok_or(format!("Response missing result: {:?}", response))?
+                .as_i64()
+                .ok_or(format!("Response result not an i64: {:?}", response))?;
             o.insert(value);
             Ok(value)
         }
