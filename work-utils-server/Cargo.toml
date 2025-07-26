@@ -1,0 +1,22 @@
+[package]
+name = "work-utils-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+log = { workspace = true, features = ["std"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+primitive-types = { workspace = true }
+bs58 = { workspace = true }
+hex = { workspace = true }
+chrono = { workspace = true }
+chrono-tz = { workspace = true }
+getrandom = { workspace = true, features = ["js"]}
+reqwest = {workspace = true, features = ["json"]}
+tokio = { workspace = true, features = ["sync", "macros", "rt"] }
+
+actix-web = "4.9.0"
+actix-ratelimit = "0.3.1"
+actix-extensible-rate-limit = "0.4.0"
+actix-cors = "0.7.0"

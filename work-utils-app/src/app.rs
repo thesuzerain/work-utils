@@ -1,10 +1,7 @@
 use crate::converter::ConverterApp;
 
 #[cfg(all(feature = "web_app", feature = "offline"))]
-compile_error!("feature \"web_app\" and feature \"offline\" cannot be enabled at the same time");
-
-#[cfg(all(not(feature = "web_app"), not(feature = "offline")))]
-compile_error!("either feature \"web_app\" or feature \"offline\" must be enabled");
+compile_error!("feature \"web_app\" and feature \"offline\" cannot be enabled at the same time. 'offline' is the default- you may want to disable default features to enable 'web_app'.");
 
 #[derive(Default)]
 pub struct State {

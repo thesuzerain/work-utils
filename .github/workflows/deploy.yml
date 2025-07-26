@@ -33,7 +33,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
+
       - name: Build web code
+        working-directory: work-utils-app
         env:
           NODE_ENV: production
         run: ./scripts/build_web.sh
@@ -46,5 +48,5 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
           projectName: work-utils
-          directory: web
-          branch: master
+          directory: work-utils-app/web
+          branch: master        

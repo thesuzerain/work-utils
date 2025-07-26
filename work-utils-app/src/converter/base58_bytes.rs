@@ -141,6 +141,16 @@ impl BaseBytesConverter {
                 }
             });
         });
+
+        // Flip endianness
+        ui.horizontal(|ui| {
+            ui.label("Flip endianness: ");
+            if ui.button("Flip").clicked() {
+                let input = parse_byte_list_u8(&self.display_byte_list_u8).unwrap_or_default();
+                let flipped = input.iter().rev().copied().collect();
+                self.update_texts(flipped);
+            }
+        });
     }
 
     /// Update texts based on a new input (Vec<u8>)
