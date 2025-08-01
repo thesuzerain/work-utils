@@ -10,6 +10,8 @@ pub struct BaseBytesConverter {
     pub display_u256: String,
 
     pub display_error: Option<String>,
+
+    pub use_commas: bool,
 }
 
 impl Default for BaseBytesConverter {
@@ -22,6 +24,7 @@ impl Default for BaseBytesConverter {
             display_u256: "".to_string(),
 
             display_error: None,
+            use_commas: false,
         }
     }
 }
@@ -48,6 +51,10 @@ impl BaseBytesConverter {
                             Err(e) => self.display_error = Some(e),
                         }
                     }
+
+                    if ui.button("Copy").clicked() {
+                        ui.output_mut(|o| o.copied_text = self.display_base58.clone());
+                    }
                 });
 
                 // Hex input and display
@@ -59,6 +66,9 @@ impl BaseBytesConverter {
                             Ok(s) => self.update_texts(s),
                             Err(e) => self.display_error = Some(e),
                         }
+                    }
+                    if ui.button("Copy").clicked() {
+                        ui.output_mut(|o| o.copied_text = self.display_hex.clone());
                     }
                 });
 
@@ -72,6 +82,9 @@ impl BaseBytesConverter {
                             Err(e) => self.display_error = Some(e),
                         }
                     }
+                    if ui.button("Copy").clicked() {
+                        ui.output_mut(|o| o.copied_text = self.display_byte_list_u8.clone());
+                    }
                 });
 
                 // Byte list (i8) input and display
@@ -84,6 +97,9 @@ impl BaseBytesConverter {
                             Err(e) => self.display_error = Some(e),
                         }
                     }
+                    if ui.button("Copy").clicked() {
+                        ui.output_mut(|o| o.copied_text = self.display_byte_list_i8.clone());
+                    }
                 });
 
                 // U256 input and display
@@ -95,6 +111,9 @@ impl BaseBytesConverter {
                             Ok(u256) => self.update_texts(u256),
                             Err(e) => self.display_error = Some(e),
                         }
+                    }
+                    if ui.button("Copy").clicked() {
+                        ui.output_mut(|o| o.copied_text = self.display_u256.clone());
                     }
                 });
             });
@@ -150,6 +169,21 @@ impl BaseBytesConverter {
                 let flipped = input.iter().rev().copied().collect();
                 self.update_texts(flipped);
             }
+
+            let use_commas = if self.use_commas {
+                "commas".to_string()
+            } else {
+                "spaces".to_string()
+            };
+            if ui
+                .button(format!("Using {use_commas} in bytes lists"))
+                .clicked()
+            {
+                self.use_commas = !self.use_commas;
+                self.update_texts(
+                    parse_byte_list_u8(&self.display_byte_list_u8).unwrap_or_default(),
+                );
+            }
         });
     }
 
@@ -164,9 +198,18 @@ impl BaseBytesConverter {
         let mut byte_list_u8 = String::new();
         let mut byte_list_i8 = String::new();
         for byte in input.iter() {
-            byte_list_u8.push_str(&format!("{} ", byte));
-            byte_list_i8.push_str(&format!("{} ", *byte as i8));
+            let comma_or_space = if self.use_commas { "," } else { " " };
+            byte_list_u8.push_str(&format!("{}{comma_or_space}", byte));
+            byte_list_i8.push_str(&format!("{}{comma_or_space}", *byte as i8));
         }
+        // Remove the last comma or space
+        if !byte_list_u8.is_empty() {
+            byte_list_u8.pop();
+        }
+        if !byte_list_i8.is_empty() {
+            byte_list_i8.pop();
+        }
+
         self.display_byte_list_u8 = byte_list_u8;
         self.display_byte_list_i8 = byte_list_i8;
 
