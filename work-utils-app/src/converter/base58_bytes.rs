@@ -128,6 +128,16 @@ impl BaseBytesConverter {
                     );
                     let solana_fm_url =
                         format!("https://solana.fm/address/{}", self.display_base58);
+                    
+                    let vybe_prod_url = format!(
+                        "https://vybe.fyi/wallets/{}",
+                        self.display_base58
+                    );
+
+                    let vybe_staging_url = format!(
+                        "https://alpha.vybeapp.xyz/wallets/{}",
+                        self.display_base58
+                    );
 
                     // now do it as a button that links out
                     if ui.button("Open in Solscan as account").clicked() {
@@ -157,6 +167,21 @@ impl BaseBytesConverter {
                             new_tab: true,
                         });
                     }
+
+                    if ui.button("Open in vybe prod").clicked() {
+                        ui.ctx().open_url(egui::OpenUrl {
+                            url: vybe_prod_url,
+                            new_tab: true,
+                        });
+                    }
+
+                    if ui.button("Open in vybe staging").clicked() {
+                        ui.ctx().open_url(egui::OpenUrl {
+                            url: vybe_staging_url,
+                            new_tab: true,
+                        });
+                    }
+
                 }
             });
         });
