@@ -1,6 +1,8 @@
 use egui::*;
 use primitive_types::U256;
 
+use crate::{VYBE_STAKE_VALIDATOR, VYBE_TOKEN_ACCOUNT, WSOL_ACCOUNT, WYATT_TEST_ACCOUNT};
+
 #[derive(PartialEq)]
 pub struct BaseBytesConverter {
     pub display_base58: String,
@@ -183,6 +185,46 @@ impl BaseBytesConverter {
                     }
 
                 }
+            });
+
+            ui.vertical(|ui| {
+                ui.label("Constant accounts");
+                    if ui.button("WSOL mint").clicked() {
+                        let new_b58 = WSOL_ACCOUNT;
+                        self.display_base58 = new_b58.to_string();
+                        match parse_base58(new_b58) {
+                            Ok(s) => self.update_texts(s),
+                            Err(e) => self.display_error = Some(e),
+                        }
+                    }
+
+                    if ui.button("Vybe staking validator").clicked() {
+                        let new_b58 = VYBE_STAKE_VALIDATOR;
+                        self.display_base58 = new_b58.to_string();
+                        match parse_base58(new_b58) {
+                            Ok(s) => self.update_texts(s),
+                            Err(e) => self.display_error = Some(e),
+                        }
+                    }
+
+                    if ui.button("Vybe token account").clicked() {
+                        let new_b58 = VYBE_TOKEN_ACCOUNT;
+                        self.display_base58 = new_b58.to_string();
+                        match parse_base58(new_b58) {
+                            Ok(s) => self.update_texts(s),
+                            Err(e) => self.display_error = Some(e),
+                        }
+                    }
+
+                    
+                    if ui.button("Wyatt's test wallet").clicked() {
+                        let new_b58 = WYATT_TEST_ACCOUNT;
+                        self.display_base58 = new_b58.to_string();
+                        match parse_base58(new_b58) {
+                            Ok(s) => self.update_texts(s),
+                            Err(e) => self.display_error = Some(e),
+                        }
+                    }
             });
         });
 
