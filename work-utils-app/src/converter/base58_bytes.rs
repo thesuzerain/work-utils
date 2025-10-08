@@ -1,7 +1,7 @@
 use egui::*;
 use primitive_types::U256;
 
-use crate::{VYBE_STAKE_VALIDATOR, VYBE_TOKEN_ACCOUNT, WSOL_ACCOUNT, WYATT_TEST_ACCOUNT};
+use crate::{VYBE_STAKE_VALIDATOR, VYBE_TOKEN_ACCOUNT, WSOL_ACCOUNT, WYATT_TEST_ACCOUNT, GENERIC_BIG_ACCOUNTS};
 
 #[derive(PartialEq)]
 pub struct BaseBytesConverter {
