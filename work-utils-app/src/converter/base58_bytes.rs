@@ -215,10 +215,19 @@ impl BaseBytesConverter {
                             Err(e) => self.display_error = Some(e),
                         }
                     }
-                    // show big accounts in groups of 4
-                    for chunk in GENERIC_BIG_ACCOUNTS.chunks(4) {
+
+                    if ui.button("Wyatt test account").clicked() {
+                        let new_b58 = WYATT_TEST_ACCOUNT;
+                        self.display_base58 = new_b58.to_string();
+                        match parse_base58(new_b58) {
+                            Ok(s) => self.update_texts(s),
+                            Err(e) => self.display_error = Some(e),
+                        }
+                    }
+                    
+                    for chunk in GENERIC_BIG_ACCOUNTS.chunks(2) {
                         ui.horizontal(|ui| {
-                            for (i, account) in GENERIC_BIG_ACCOUNTS.iter().enumerate() {
+                            for (i, account) in chunk.iter().enumerate() {
                                 let first_4_chars = &account.chars().take(4).collect::<String>();
                                 if ui.button(format!("Big account {i}: {first_4_chars}...")).clicked() {
                                     self.display_base58 = account.to_string();
