@@ -10,7 +10,7 @@ pub const WYATT_TEST_ACCOUNT: &str = "9czTJGaFdT863zno3r4t1Zd5j7pUePMguftxhm4piY
 pub const VYBE_TOKEN_ACCOUNT: &str = "vybe5DgwzGdvJMi4oH7TiQpubJd4QSDuGmbvWfACeb8";
 pub const VYBE_STAKE_VALIDATOR: &str = "6oscGUEkXE8fyWoC4czRKbM1cuLkJNtgRsX1Un6w88Vf";
 
-pub const GENERIC_BIG_ACCOUNTS: [&str; 4] = [
+pub const GENERIC_BIG_ACCOUNTS: [&str; 9] = [
     "WLHv2UAZm6z4KyaaELi5pjdbJh6RESMva1Rnn8pJVVh", // 1.7m-ish
     "1BWutmTvYPwDtmw9abTkS4Ssr8no61spGAvW1X6NDix", // 1.4m-ish
     "STEPNwUmvdCWRm4yzH4rtCuPUeKuEapFvFKHKteiGH5", // 150k-ish
